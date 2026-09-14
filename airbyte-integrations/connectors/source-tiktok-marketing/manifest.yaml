@@ -361,6 +361,18 @@ definitions:
       type: SimpleRetriever
       requester:
         $ref: "#/definitions/requester"
+        error_handler:
+          type: DefaultErrorHandler
+          response_filters:
+            - predicate: "{{ response.get('code') == 40100 }}"
+              action: RATE_LIMITED
+              error_message: "TikTok Marketing API rate limit exceeded. Please verify that only one Airbyte connection with the same credentials is running at a time. If the problem persists, even after ensuring that only one connection is running, please contact Airbyte support. {{ response.get('message', '') }}"
+            # TikTok internal server errors / RPC timeouts (e.g. 51002 MGetCreativeInfoByIds timeout) return HTTP 200 with code 5xxxx
+            - predicate: "{{ response.get('code', 0) >= 50000 and response.get('code', 0) < 60000 }}"
+              action: RETRY
+            - predicate: "{{ response.get('code') != 0 }}"
+              action: FAIL
+              error_message: "{{ response['message'] }}"
         request_parameters:
           advertiser_id: "{{ stream_slice['advertiser_id'] }}"
           filtering: '{{ {"adgroup_ids": stream_slice["adgroup_ids"]} | string }}'

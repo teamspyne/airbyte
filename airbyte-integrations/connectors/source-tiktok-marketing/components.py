@@ -116,7 +116,7 @@ class SmartPlusAdGroupIdsPartitionRouter(SubstreamPartitionRouter):
     def __post_init__(self, parameters: Mapping[str, Any]) -> None:
         super().__post_init__(parameters)
         self._partition_field = self._parameters["partition_field"]
-        self._batch_size = self._parameters.get("batch_size", 100)
+        self._batch_size = self._parameters.get("batch_size", 20)
 
     def stream_slices(self) -> Iterable[StreamSlice]:
         adgroup_ids_by_advertiser: dict = {}
