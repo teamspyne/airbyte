@@ -893,8 +893,8 @@ class TestBaseInsightsStream:
                 id="mix_of_base_and_extra_fields",
             ),
             pytest.param(
-                ["video_thruplay_watched_actions", "objective_result_rate"],
-                ["video_thruplay_watched_actions", "objective_result_rate", "date_start", "date_stop", "account_id", "ad_id"],
+                ["unique_video_view_15_sec", "objective_result_rate"],
+                ["unique_video_view_15_sec", "objective_result_rate", "date_start", "date_stop", "account_id", "ad_id"],
                 [],
                 id="ads_action_stats_and_ads_insights_result_fields",
             ),
@@ -945,6 +945,7 @@ class TestBaseInsightsStream:
         assert "account_id" in schema["properties"]
         assert "impressions" in schema["properties"]
         assert "actions" in schema["properties"]
+        assert "video_thruplay_watched_actions" in schema["properties"]
 
     def test_fields_custom_with_objective_results(self, api, some_config):
         """Test that objective_results field is included in schema when requested in custom fields"""
