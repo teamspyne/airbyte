@@ -241,6 +241,53 @@ class TestBaseInsightsStream:
 
         assert len(records) == 3
 
+    @pytest.mark.parametrize("drop_empty_records, expected_ids", [(True, ["late_actions", "delivery", "unknown"]), (False, None)])
+    def test_read_records_drop_empty_records(self, mocker, api, some_config, drop_empty_records, expected_ids):
+        """Spyne fork: rows with no delivery and no actions are skipped; rows with late actions are kept."""
+        empty = {
+            "ad_name": "2024",
+            "campaign_name": "old campaign",
+            "date_start": "2026-10-03",
+            "quality_ranking": "UNKNOWN",
+            "spend": "0",
+            "impressions": "0",
+            "clicks": "0",
+            "frequency": "0",
+            "reach": 0,
+        }
+        rows = {
+            "empty": empty,
+            "empty_lists": {**empty, "actions": [], "conversions": None},
+            "late_actions": {**empty, "actions": [{"action_type": "purchase", "7d_click": "1", "value": "1"}]},
+            "delivery": {**empty, "impressions": "12"},
+            "unknown": {**empty, "some_new_metric": "3"},
+        }
+        recs = []
+        for name, data in rows.items():
+            rec = mocker.Mock()
+            rec.export_all_data.return_value = {**data, "ad_id": name}  # ad_id is a dimension: ignored by the check
+            recs.append(rec)
+        job = mocker.Mock(spec=InsightAsyncJob)
+        job.get_result.return_value = recs
+        job.interval = DateInterval(date(2010, 1, 1), date(2010, 1, 1))
+        stream = AdsInsights(
+            api=api,
+            account_ids=some_config["account_ids"],
+            start_date=datetime(2010, 1, 1),
+            end_date=datetime(2011, 1, 1),
+            insights_lookback_window=28,
+            drop_empty_records=drop_empty_records,
+        )
+
+        records = list(
+            stream.read_records(
+                sync_mode=SyncMode.incremental,
+                stream_slice={"insight_job": job, "account_id": some_config["account_ids"][0]},
+            )
+        )
+
+        assert [r["ad_id"] for r in records] == (expected_ids or list(rows))
+
     @freeze_time("2026-09-30")
     def test_cursor_does_not_regress_while_completing_lookback_slices(self, mocker, api, some_config):
         account_id = some_config["account_ids"][0]

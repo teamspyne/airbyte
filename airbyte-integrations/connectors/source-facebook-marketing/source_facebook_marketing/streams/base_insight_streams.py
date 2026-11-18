@@ -89,9 +89,11 @@ class AdsInsights(FBMarketingIncrementalStream):
         level: str = "ad",
         include_incrementality: bool = False,
         include_engaged_view: bool = False,
+        drop_empty_records: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self._drop_empty_records = drop_empty_records
         self._start_date = self._start_date.date()
         self._end_date = self._end_date.date()
         self._account_end_dates: dict[str, date] = {}
@@ -230,6 +232,42 @@ class AdsInsights(FBMarketingIncrementalStream):
     def list_objects(self, params: Mapping[str, Any]) -> Iterable:
         """Because insights has very different read_records we don't need this method anymore"""
 
+    @cached_property
+    def _empty_record_field_kinds(self) -> tuple[frozenset, frozenset]:
+        """(dimension fields, numeric metric fields) of the insights schemas.
+
+        Dimensions: the string fields of `ads_insights` (ids, names, dates, rankings…) and every breakdown and
+        action breakdown field. Numeric metrics: the number/integer fields of `ads_insights`. Any other field
+        (action lists such as `actions`, `conversions`, `video_*`, or a field unknown to the schemas) counts as a
+        metric that must be empty.
+        """
+        loader = ResourceSchemaLoader(package_name_from_class(self.__class__))
+        base = loader.get_schema("ads_insights")["properties"]
+        dimensions = {name for name, prop in base.items() if "string" in prop.get("type", [])}
+        dimensions |= set(loader.get_schema("ads_insights_breakdowns")["properties"])
+        dimensions |= set(loader.get_schema("ads_insights_action_breakdowns")["properties"])
+        numerics = {name for name, prop in base.items() if {"number", "integer"} & set(prop.get("type", []))}
+        return frozenset(dimensions), frozenset(numerics)
+
+    def _is_empty_record(self, record: Mapping[str, Any]) -> bool:
+        """True when the record carries no data at all: every numeric metric is 0 and every action list is empty.
+
+        Without an `ad.effective_status` filter Meta returns one such row per day for every ad of the account,
+        including ads that never ran. Rows with no spend but with (late-attributed) actions are kept.
+        """
+        dimensions, numerics = self._empty_record_field_kinds
+        for name, value in record.items():
+            if name in dimensions or value is None or value == [] or value == {}:
+                continue
+            if name in numerics:
+                try:
+                    if float(value) == 0:
+                        continue
+                except (TypeError, ValueError):
+                    pass
+            return False
+        return True
+
     def _add_account_id(self, record: dict[str, Any], account_id: str):
         if "account_id" not in record:
             record["account_id"] = account_id
@@ -245,9 +283,13 @@ class AdsInsights(FBMarketingIncrementalStream):
         job = stream_slice["insight_job"]
         account_id = stream_slice["account_id"]
 
+        dropped = 0
         try:
             for obj in job.get_result():
                 data = obj.export_all_data()
+                if self._drop_empty_records and self._is_empty_record(data):
+                    dropped += 1
+                    continue
                 if self._response_data_is_valid(data):
                     self._add_account_id(data, account_id)
                     data = self._transform_breakdown(data)
@@ -262,6 +304,8 @@ class AdsInsights(FBMarketingIncrementalStream):
         except FacebookRequestError as exc:
             raise traced_exception(exc)
 
+        if dropped:
+            self.logger.info(f"{self.name}: skipped {dropped} empty records (no delivery, no actions) for job {job}")
         self._completed_slices[account_id].add(job.interval.start)
         if job.interval.start <= self._next_cursor_values[account_id]:
             self._advance_cursor(account_id)

@@ -161,6 +161,15 @@ class TestSourceFacebookMarketing:
         assert len(insights_streams) == 20
         for stream in insights_streams:
             assert "filtering" not in stream.request_params(), stream.name
+            assert stream._drop_empty_records, stream.name
+
+    def test_custom_insights_streams_keep_empty_records(self, api, config, fb_marketing):
+        """Spyne fork: the empty-record drop is limited to the built-in insights streams."""
+        config["custom_insights"] = [{"name": "test", "fields": ["ad_id", "spend"], "breakdowns": [], "action_breakdowns": []}]
+        config = ConnectorConfig.parse_obj(config)
+        streams = fb_marketing.get_custom_insights_streams(api, config)
+
+        assert streams and not any(stream._drop_empty_records for stream in streams)
 
     def test_spec(self, fb_marketing):
         spec = fb_marketing.spec()

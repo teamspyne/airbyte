@@ -30,6 +30,14 @@ Everything that differs from upstream, outside `.github/`:
   change: older dates need a manual resync of the insights streams.
   Tests: `unit_tests/test_source.py::test_insights_streams_have_no_status_filter`, and the expected request
   in `unit_tests/integration/test_ads_insights_action_product_id.py` has no `filtering`.
+- Same streams: completely empty records are skipped (`drop_empty_records=True` in `insights_args`,
+  `AdsInsights._is_empty_record` in `streams/base_insight_streams.py`). Without the status filter Meta returns one
+  row per day for every ad of the account, ads that never ran included (x3 to x6 rows on a tested account).
+  A record is empty when every numeric metric of `ads_insights.json` is 0 and every other non-dimension field
+  (`actions`, `conversions`, `video_*`…) is empty; a field unknown to the schemas keeps the row. Rows with no
+  spend but with late-attributed actions are kept. Custom insights streams are unchanged (flag off).
+  Tests: `unit_tests/test_base_insight_streams.py::TestBaseInsightsStream::test_read_records_drop_empty_records`,
+  `unit_tests/test_source.py::test_custom_insights_streams_keep_empty_records`.
 
 ### source-tiktok-marketing
 - New `smart_plus_ads` stream (`GET smart_plus/ad/get/`): metadata of the parent-level Smart+ Ad
