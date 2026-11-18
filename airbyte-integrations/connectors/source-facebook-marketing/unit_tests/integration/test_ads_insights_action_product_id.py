@@ -49,7 +49,7 @@ _JOB_START_FIELDS = [
     "ad_name",
     "adset_id",
     "adset_name",
-    "attribution_setting",
+    # Spyne fork: "attribution_setting" is not requested by the built-in insights streams (see base_insight_streams.py).
     "auction_bid",
     "auction_competitiveness",
     "auction_max_competitor_bid",

@@ -160,8 +160,8 @@ class SourceFacebookMarketing(AbstractSource):
         # With async report runs, that filter makes Meta drop the ad rows with zero delivery (no spend, no
         # impressions) a few days after an ad stops, together with the conversions attributed to them on
         # those days. Without the filter these rows are kept, and archived ads' spend is still returned.
-        # Meta then also returns one completely empty row per day for every ad of the account, ads that never ran
-        # included (x3 to x6 rows): `drop_empty_records` skips them. Rows with actions but no spend are kept.
+        # The insights streams also stop requesting `attribution_setting` (see `_fields_excluded_from_api_request`),
+        # which would otherwise add one empty row per day for every ad of the account.
         insights_args = dict(
             api=api,
             account_ids=config.account_ids,
@@ -169,7 +169,6 @@ class SourceFacebookMarketing(AbstractSource):
             end_date=config.end_date,
             insights_lookback_window=config.insights_lookback_window,
             insights_job_timeout=config.insights_job_timeout,
-            drop_empty_records=True,
             include_incrementality=config.include_incrementality,
             include_engaged_view=config.include_engaged_view,
         )
