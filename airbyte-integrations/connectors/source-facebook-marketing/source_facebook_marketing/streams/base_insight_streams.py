@@ -702,4 +702,10 @@ class AdsInsights(FBMarketingIncrementalStream):
 
     def _fields_excluded_from_api_request(self) -> set[str]:
         object_breakdown_ids = {self.object_breakdowns[breakdown] for breakdown in self.breakdowns if breakdown in self.object_breakdowns}
-        return set(self.breakdowns) | object_breakdown_ids | {"wish_bid"}
+        excluded = set(self.breakdowns) | object_breakdown_ids | {"wish_bid"}
+        if not self._custom_fields:
+            # Spyne fork: requesting `attribution_setting` makes Meta return one completely empty row per day for
+            # every ad of the account (ads that never ran included). The built-in streams no longer request it;
+            # the column stays in the schema and is null. A custom insight that lists it still gets it.
+            excluded.add("attribution_setting")
+        return excluded

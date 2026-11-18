@@ -49,7 +49,7 @@ _JOB_START_FIELDS = [
     "ad_name",
     "adset_id",
     "adset_name",
-    "attribution_setting",
+    # Spyne fork: "attribution_setting" is not requested by the built-in insights streams (see base_insight_streams.py).
     "auction_bid",
     "auction_competitiveness",
     "auction_max_competitor_bid",
@@ -163,26 +163,7 @@ def _job_start_request(
         "fields": body_fields,
         "time_increment": 1,
         "action_attribution_windows": ["1d_click", "7d_click", "28d_click", "1d_view"],
-        "filtering": [
-            {
-                "field": f"ad.effective_status",
-                "operator": "IN",
-                "value": [
-                    "ACTIVE",
-                    "ADSET_PAUSED",
-                    "ARCHIVED",
-                    "CAMPAIGN_PAUSED",
-                    "DELETED",
-                    "DISAPPROVED",
-                    "IN_PROCESS",
-                    "PAUSED",
-                    "PENDING_BILLING_INFO",
-                    "PENDING_REVIEW",
-                    "PREAPPROVED",
-                    "WITH_ISSUES",
-                ],
-            },
-        ],
+        # Spyne fork: no `ad.effective_status` filter on the built-in insights streams (see source.py).
         "time_range": {"since": since, "until": until},
     }
     return RequestBuilder.get_insights_endpoint(access_token=ACCESS_TOKEN, account_id=account_id).with_body(encode_request_body(body))

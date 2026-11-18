@@ -21,7 +21,7 @@ from airbyte_cdk.sources.streams import Stream
 from airbyte_cdk.utils import AirbyteTracedException
 from airbyte_cdk.utils.datetime_helpers import AirbyteDateTime, ab_datetime_now, ab_datetime_parse
 from source_facebook_marketing.api import API
-from source_facebook_marketing.spec import ConnectorConfig, ValidAdStatuses
+from source_facebook_marketing.spec import ConnectorConfig
 from source_facebook_marketing.streams import (
     Activities,
     AdAccount,
@@ -156,6 +156,12 @@ class SourceFacebookMarketing(AbstractSource):
         # if start_date not specified then set default start_date for report streams to 2 years ago
         report_start_date = config.start_date or (ab_datetime_now() - timedelta(days=365 * 2))
 
+        # Spyne fork: no `ad.effective_status` filter on the built-in insights streams.
+        # With async report runs, that filter makes Meta drop the ad rows with zero delivery (no spend, no
+        # impressions) a few days after an ad stops, together with the conversions attributed to them on
+        # those days. Without the filter these rows are kept, and archived ads' spend is still returned.
+        # The insights streams also stop requesting `attribution_setting` (see `_fields_excluded_from_api_request`),
+        # which would otherwise add one empty row per day for every ad of the account.
         insights_args = dict(
             api=api,
             account_ids=config.account_ids,
@@ -163,7 +169,6 @@ class SourceFacebookMarketing(AbstractSource):
             end_date=config.end_date,
             insights_lookback_window=config.insights_lookback_window,
             insights_job_timeout=config.insights_job_timeout,
-            filter_statuses=[status.value for status in [*ValidAdStatuses]],
             include_incrementality=config.include_incrementality,
             include_engaged_view=config.include_engaged_view,
         )
