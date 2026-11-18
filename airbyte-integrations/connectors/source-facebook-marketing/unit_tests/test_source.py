@@ -10,6 +10,7 @@ import pytest
 from facebook_business import FacebookAdsApi, FacebookSession
 from source_facebook_marketing import SourceFacebookMarketing
 from source_facebook_marketing.spec import ConnectorConfig, TimeIncrementPeriod
+from source_facebook_marketing.streams import AdsInsights
 
 from airbyte_cdk import AirbyteTracedException
 from airbyte_cdk.models import (
@@ -151,6 +152,15 @@ class TestSourceFacebookMarketing:
         streams = fb_marketing.streams(config)
 
         assert len(streams) == 31
+
+    def test_insights_streams_have_no_status_filter(self, config, api, fb_marketing):
+        """Spyne fork: an `ad.effective_status` filter makes Meta drop zero-delivery ad rows from async reports,
+        and the conversions attributed to them. The built-in insights streams must not send it."""
+        insights_streams = [s for s in fb_marketing.streams(config) if isinstance(s, AdsInsights)]
+
+        assert len(insights_streams) == 20
+        for stream in insights_streams:
+            assert "filtering" not in stream.request_params(), stream.name
 
     def test_spec(self, fb_marketing):
         spec = fb_marketing.spec()

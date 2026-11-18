@@ -20,6 +20,16 @@ Everything that differs from upstream, outside `.github/`:
   (`source_facebook_marketing/schemas/ads_insights.json`), so it is requested by default.
 - Unit tests updated accordingly (`unit_tests/test_base_insight_streams.py`,
   `unit_tests/integration/test_ads_insights_action_product_id.py`).
+- Built-in insights streams (`ads_insights`, `ads_insights_action_type`, all the `ads_insights_*` breakdowns):
+  no `ad.effective_status` filter. Upstream passes every `ValidAdStatuses` value as `filter_statuses` in
+  `insights_args` (`source_facebook_marketing/source.py`). With async report runs, Meta then drops the ad rows
+  with zero delivery a few days after an ad stops, together with the conversions attributed to them on those
+  days, so late conversions were missing compared with Ads Manager (a few % on the affected campaigns). The filter is
+  removed; archived ads' spend is still returned without it. The `ad_statuses` option of the `ads` stream is
+  unchanged. Insights state does not record the filter, so only the lookback window is re-read after the
+  change: older dates need a manual resync of the insights streams.
+  Tests: `unit_tests/test_source.py::test_insights_streams_have_no_status_filter`, and the expected request
+  in `unit_tests/integration/test_ads_insights_action_product_id.py` has no `filtering`.
 
 ### source-tiktok-marketing
 - New `smart_plus_ads` stream (`GET smart_plus/ad/get/`): metadata of the parent-level Smart+ Ad
@@ -94,7 +104,11 @@ rm -rf airbyte-integrations/connectors/source-tiktok-marketing/unit_tests/REQUES
 Tests that usually need updating after a merge:
 - TikTok `unit_tests/test_source.py::test_source_streams`: upstream's stream count + 1 (`smart_plus_ads`).
 - Facebook `unit_tests/integration/test_ads_insights_action_product_id.py`: `_JOB_START_FIELDS`
-  must follow the order of `ads_insights.json`, including `video_thruplay_watched_actions`.
+  must follow the order of `ads_insights.json`, including `video_thruplay_watched_actions`, and the expected
+  job request has no `filtering`.
+- Facebook `unit_tests/test_source.py::test_insights_streams_have_no_status_filter`: if it fails after a merge,
+  upstream has put a status filter back on the insights streams (`insights_args` in `source.py`): remove it again.
+  Its stream count follows upstream's list of built-in insights streams.
 
 ### Push
 
