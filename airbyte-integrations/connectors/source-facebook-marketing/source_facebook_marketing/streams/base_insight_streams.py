@@ -702,7 +702,10 @@ class AdsInsights(FBMarketingIncrementalStream):
 
     def _fields_excluded_from_api_request(self) -> set[str]:
         object_breakdown_ids = {self.object_breakdowns[breakdown] for breakdown in self.breakdowns if breakdown in self.object_breakdowns}
-        excluded = set(self.breakdowns) | object_breakdown_ids | {"wish_bid"}
+        # Spyne fork: Meta rejects `qualifying_question_qualify_answer_rate` since 2026-11-19 ("(#100) Tried accessing
+        # nonexisting field"), which fails every insights job that requests it. It is never requested, built-in and
+        # custom insights alike, like upstream's `wish_bid`; the column stays in the schema and is null.
+        excluded = set(self.breakdowns) | object_breakdown_ids | {"wish_bid", "qualifying_question_qualify_answer_rate"}
         if not self._custom_fields:
             # Spyne fork: requesting `attribution_setting` makes Meta return one completely empty row per day for
             # every ad of the account (ads that never ran included). The built-in streams no longer request it;
