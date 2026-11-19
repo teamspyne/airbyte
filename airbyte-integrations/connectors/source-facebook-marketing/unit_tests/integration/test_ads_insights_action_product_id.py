@@ -108,7 +108,7 @@ _JOB_START_FIELDS = [
     "outbound_clicks",
     "outbound_clicks_ctr",
     "purchase_roas",
-    "qualifying_question_qualify_answer_rate",
+    # Spyne fork: "qualifying_question_qualify_answer_rate" is no longer requested (Meta rejects it, see base_insight_streams.py).
     "quality_ranking",
     "reach",
     "social_spend",

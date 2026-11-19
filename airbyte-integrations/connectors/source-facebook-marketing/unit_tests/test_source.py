@@ -176,6 +176,22 @@ class TestSourceFacebookMarketing:
         custom_streams = fb_marketing.get_custom_insights_streams(api, ConnectorConfig.parse_obj(config))
         assert custom_streams and all("attribution_setting" in s.request_params()["fields"] for s in custom_streams)
 
+    def test_insights_streams_do_not_request_removed_meta_field(self, config, api, fb_marketing):
+        """Spyne fork: Meta rejects `qualifying_question_qualify_answer_rate` ("(#100) Tried accessing nonexisting
+        field"), which fails the whole insights job. No insights stream requests it, custom insights included;
+        the column stays in the schema."""
+        field = "qualifying_question_qualify_answer_rate"
+        insights_streams = [s for s in fb_marketing.streams(config) if isinstance(s, AdsInsights)]
+
+        assert len(insights_streams) == 20
+        for stream in insights_streams:
+            assert field not in stream.request_params()["fields"], stream.name
+            assert field in stream.get_json_schema()["properties"], stream.name
+
+        config["custom_insights"] = [{"name": "test", "fields": ["ad_id", field], "breakdowns": [], "action_breakdowns": []}]
+        custom_streams = fb_marketing.get_custom_insights_streams(api, ConnectorConfig.parse_obj(config))
+        assert custom_streams and all(field not in s.request_params()["fields"] for s in custom_streams)
+
     def test_spec(self, fb_marketing):
         spec = fb_marketing.spec()
 

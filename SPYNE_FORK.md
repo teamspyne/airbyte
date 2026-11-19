@@ -37,6 +37,12 @@ Everything that differs from upstream, outside `.github/`:
   in the schema and is null. A custom insight that lists `attribution_setting` still requests it.
   Tests: `unit_tests/test_source.py::test_insights_streams_do_not_request_attribution_setting`, and
   `_JOB_START_FIELDS` in `unit_tests/integration/test_ads_insights_action_product_id.py` has no `attribution_setting`.
+- All insights streams, custom insights included: `qualifying_question_qualify_answer_rate` is not requested (same
+  set as upstream's `wish_bid` in `_fields_excluded_from_api_request`). Since 2026-11-19 Meta answers
+  "(#100) Tried accessing nonexisting field" for it, which fails the whole insights job. The column stays in the
+  schema and is null. Drop this exclusion once upstream removes the field from `ads_insights.json`.
+  Tests: `unit_tests/test_source.py::test_insights_streams_do_not_request_removed_meta_field`, and `_JOB_START_FIELDS`
+  has no `qualifying_question_qualify_answer_rate`.
 
 ### source-tiktok-marketing
 - New `smart_plus_ads` stream (`GET smart_plus/ad/get/`): metadata of the parent-level Smart+ Ad
@@ -112,7 +118,7 @@ Tests that usually need updating after a merge:
 - TikTok `unit_tests/test_source.py::test_source_streams`: upstream's stream count + 1 (`smart_plus_ads`).
 - Facebook `unit_tests/integration/test_ads_insights_action_product_id.py`: `_JOB_START_FIELDS`
   must follow the order of `ads_insights.json`, including `video_thruplay_watched_actions` but without
-  `attribution_setting`, and the expected job request has no `filtering`.
+  `attribution_setting` and `qualifying_question_qualify_answer_rate`, and the expected job request has no `filtering`.
 - Facebook `unit_tests/test_source.py::test_insights_streams_have_no_status_filter`: if it fails after a merge,
   upstream has put a status filter back on the insights streams (`insights_args` in `source.py`): remove it again.
   Its stream count follows upstream's list of built-in insights streams.
